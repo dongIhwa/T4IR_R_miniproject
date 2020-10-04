@@ -21,7 +21,7 @@ rate_2 %>%
 rate_result <- as.data.frame(rate_result)
 
 View(rate_result)
-# 7평 기준 평균 월세
+# 한평 기준 평균 월세
 rate_result %>%
   mutate(한평당월세평균=평균*3.305785) %>%
   select(자치구명, 한평당월세평균)
