@@ -45,4 +45,6 @@ result_2 %>%
            이삼십대비율= 이삼십대합계/계*100) %>%
   select(행정구역별, 계, 이삼십대합계, 이삼십대비율) %>%
   arrange(desc(이삼십대비율)) %>%
-  head(10)
+  head(10) -> result_topten
+
+result_topten$행정구역별
