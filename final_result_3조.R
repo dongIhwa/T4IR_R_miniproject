@@ -85,13 +85,14 @@ rate_result %>%
 
 
 #올리브영
-remDr <- remoteDriver(remoteServerAddr = "localhost" , port = 4445, browserName = "chrome") #셀레니움 서버에 접속해달라
+remDr <- remoteDriver(remoteServerAddr = "localhost" , port = 4445, browserName = "chrome")
 remDr$open()
 area <- NULL
 oliveyoung <- NULL
 for (i in 1:10){
   remDr$navigate("https://www.oliveyoung.co.kr/store/store/getStoreMain.do")
   guName <- seoultopten[i]
+  Sys.sleep(1)
   webElem <- remDr$findElement(using = "css", "#searchWord")
   webElem$sendKeysToElement(list(guName, key = "enter"))
   Sys.sleep(2)
@@ -324,11 +325,12 @@ for(i in c(2:26)){
   buggerking <- rbind(buggerking, buggerking_result)
 }
 
-buggerking %>%
-  filter(seoul %in% seoultopten) -> buggerking_topten
 
 
 # 맥도날드
+buggerking %>%
+  filter(seoul %in% seoultopten) -> buggerking_topten
+
 gulist <- buggerking$seoul
 url_mcdonalds <- "https://www.mcdonalds.co.kr/kor/store/list.do"
 mcdonalds <- NULL
@@ -394,7 +396,6 @@ starbucks <- NULL
 
 remDr$navigate(url_starbucks)
 Sys.sleep(3)
-# 추석시즌 한정 매장 영업시간 안내 팝업 닫고 진행
 gulist
 
 for(j in gulist){
@@ -496,37 +497,37 @@ drugstore_end_result
 bugger_end_result
 cafe_end_result
 
-result <- cbind(mart_end_result, drugstore_end_result$드럭스토어점수,
+score_result <- cbind(mart_end_result, drugstore_end_result$드럭스토어점수,
                 bugger_end_result$패스트푸드점수, cafe_end_result$카페점수)
 
-names(result) <- c("자치구명", "마트점수", "드럭스토어점수",
+names(score_result) <- c("자치구명", "마트점수", "드럭스토어점수",
                    "패스트푸드점수", "카페점수")
 
-result %>%
+score_result %>%
   mutate(총점수=마트점수+드럭스토어점수+패스트푸드점수+카페점수,
             평균점수=총점수/4) %>%
   arrange(desc(평균점수)) %>%
   select(자치구명, 평균점수) -> result_NoBias
 
-result %>%
+score_result %>%
   mutate(마트선호점수=(마트점수*0.55)+(드럭스토어점수*0.15)+
                  (패스트푸드점수*0.15)+(카페점수*0.15)) %>%
   arrange(desc(마트선호점수)) %>%
   select(자치구명, 마트선호점수) -> result_mart
 
-result %>%
+score_result %>%
   mutate(드럭스토어선호점수=(드럭스토어점수*0.55)+(마트점수*0.15)+
                     (패스트푸드점수*0.15)+(카페점수*0.15)) %>%
   arrange(desc(드럭스토어선호점수)) %>%
   select(자치구명, 드럭스토어선호점수) -> result_drugstore
 
-result %>%
+score_result %>%
   mutate(패스트푸드선호점수=(패스트푸드점수*0.55)+(마트점수*0.15)+
                     (드럭스토어점수*0.15)+(카페점수*0.15)) %>%
   arrange(desc(패스트푸드선호점수)) %>%
   select(자치구명, 패스트푸드선호점수) -> result_bugger
 
-result %>%
+score_result %>%
   mutate(카페선호점수=(카페점수*0.55)+(마트점수*0.15)+
                  (패스트푸드점수*0.15)+(드럭스토어점수*0.15)) %>%
   arrange(desc(카페선호점수)) %>%
@@ -558,13 +559,82 @@ result_cafe
 result_drugstore
 with_rate_result
 
-library(ggplot2)
+
+result_topten %>%
+  select(자치구명,이삼십대비율)-> result_topten2
+
+result_topten2 %>%
+  inner_join(result_NoBias) -> result_NoBias2
+
+result_topten2 %>%
+  inner_join(result_mart) -> result_mart2
+
+result_topten2 %>%
+  inner_join(result_bugger) -> result_bugger2
+
+result_topten2 %>%
+  inner_join(result_cafe) -> result_cafe2
+
+result_topten2 %>%
+  inner_join(result_drugstore) -> result_drugstore2
+
+result_topten2 %>%
+  inner_join(with_rate_result) -> with_rate_result2
+
+result_topten2 %>%
+  inner_join(rate_com) -> rate_com2
+
+#상관계수에 대한 가설검정
+cor.test(result_NoBias2$이삼십대비율, result_NoBias2$평균점수)
+cor.test(with_rate_result2$이삼십대비율, with_rate_result2$월세고려점수)
+cor.test(rate_com2$이삼십대비율, rate_com2$한평당월세평균)
+cor.test(result_mart2$이삼십대비율, result_mart2$마트선호점수)
+cor.test(result_bugger2$이삼십대비율, result_bugger2$패스트푸드선호점수)
+cor.test(result_cafe2$이삼십대비율, result_cafe2$카페선호점수)
+cor.test(result_drugstore2$이삼십대비율, result_drugstore2$드럭스토어선호점수)
+
+
 #데이터 시각화
+install.packages("corrplot")
+library(corrplot)
+#상관계수 행렬
+result_topten %>% arrange(자치구명) %>% select(자치구명, 이삼십대비율) ->popul
+with_rate_result %>% arrange(자치구명) -> rate2
+all_store <- cbind(popul, result[2:5])
+all_store1 <- cbind(all_store, rate2[2])
+all_store1_cor <- cor(all_store1[2:7])
+all_store1_cor
+
+corrplot(all_store1_cor, method="circle")
+dev.copy(png, "corr_graph.png", height=600, width=900, bg="white")
+dev.off()
+
+
+
+library(ggplot2)
+topten_palette <- c("관악구"="#003399", "광진구"="#00cc99", "마포구"="#33cc33", "영등포구"="#009900", "동작구"="#99ccff",
+                 "성동구"="#0099ff", "강서구"="#6666ff", "용산구"="#3366ff", "금천구"="#cccc00", "동대문구"="#77b300")
+
+#지역별 인구비율
+result_topten
+names(result_topten)[names(result_topten)=="행정구역별"] <- c("자치구명")
+topten_data <- result_topten %>% arrange(이삼십대비율)
+topten_data$자치구명 <- factor(topten_data$자치구명, levels=topten_data$자치구명)
+population <- ggplot(topten_data, aes(x=자치구명, y=이삼십대비율, fill=자치구명))
+population1 <- population + geom_bar(stat="identity") + coord_cartesian(ylim=c(0, 100)) + scale_fill_manual(values = topten_palette) + coord_flip()
+population2 <- population1 + labs(x="자치구", y="인구비율(%)", title="지역별 점수 그래프", subtitle="20-30대 인구 비율")
+population3 <- population2 + theme(plot.title=element_text(face="bold", color="steelblue", size = 20),
+                                   plot.subtitle=element_text(face="bold", color="tomato", size = 15),
+                                   axis.title.x=element_text(face="bold", size = 15), axis.title.y=element_text(face="bold", size = 15),
+                                   axis.text.x=element_text(size=15), axis.text.y=element_text(size=15))
+population3
+ggsave("population.png")
+
 #모든 편의시설을 선호하는 경우
-result_NoBias <- result_NoBias %>% arrange(평균점수)
-result_NoBias$자치구명 <- factor(result_NoBias$자치구명, levels=result_NoBias$자치구명)
-all <- ggplot(result_NoBias, aes(x=자치구명, y=평균점수, fill=자치구명)) 
-all1 <- all + geom_bar(stat="identity") + coord_cartesian(ylim=c(0, 100)) + coord_flip()
+NoBias_data <- result_NoBias %>% arrange(평균점수)
+NoBias_data$자치구명 <- factor(NoBias_data$자치구명, levels=NoBias_data$자치구명)
+all <- ggplot(NoBias_data, aes(x=자치구명, y=평균점수, fill=자치구명)) 
+all1 <- all + geom_bar(stat="identity") + coord_cartesian(ylim=c(0, 100)) + scale_fill_manual(values = topten_palette) + coord_flip()
 all2 <- all1 + labs(x="자치구", y="점수", title="지역별 점수 그래프", subtitle="모든 편의시설을 선호하는 경우")
 all3 <- all2 + theme(plot.title=element_text(face="bold", color="steelblue", size = 20),
                      plot.subtitle=element_text(face="bold", color="tomato", size = 15),
@@ -574,10 +644,10 @@ all3
 ggsave("NoBias.png")
 
 #마트를 선호하는 경우
-result_mart <- result_mart %>% arrange(마트선호점수)
-result_mart$자치구명 <- factor(result_mart$자치구명, levels=result_mart$자치구명)
-mart <- ggplot(result_mart, aes(x=자치구명, y=마트선호점수, fill=자치구명)) 
-mart1 <- mart + geom_bar(stat="identity") + coord_cartesian(ylim=c(0, 100)) + coord_flip()
+mart_data <- result_mart %>% arrange(마트선호점수)
+mart_data$자치구명 <- factor(mart_data$자치구명, levels=mart_data$자치구명)
+mart <- ggplot(mart_data, aes(x=자치구명, y=마트선호점수, fill=자치구명)) 
+mart1 <- mart + geom_bar(stat="identity") + coord_cartesian(ylim=c(0, 100)) + scale_fill_manual(values = topten_palette) + coord_flip()
 mart2 <- mart1 + labs(x="자치구", y="점수", title="지역별 점수 그래프", subtitle="마트를 선호하는 경우")
 mart3 <- mart2 + theme(plot.title=element_text(face="bold", color="steelblue", size = 20),
                        plot.subtitle=element_text(face="bold", color="tomato", size = 15),
@@ -587,10 +657,10 @@ mart3
 ggsave("mart.png")
 
 #패스트푸드점을 선호하는 경우
-result_bugger <- result_bugger %>% arrange(패스트푸드선호점수)
-result_bugger$자치구명 <- factor(result_bugger$자치구명, levels=result_bugger$자치구명)
-bugger <- ggplot(result_bugger, aes(x=자치구명, y=패스트푸드선호점수, fill=자치구명))
-bugger1 <- bugger + geom_bar(stat="identity") + coord_cartesian(ylim=c(0, 100)) + coord_flip()
+bugger_data <- result_bugger %>% arrange(패스트푸드선호점수)
+bugger_data$자치구명 <- factor(bugger_data$자치구명, levels=bugger_data$자치구명)
+bugger <- ggplot(bugger_data, aes(x=자치구명, y=패스트푸드선호점수, fill=자치구명))
+bugger1 <- bugger + geom_bar(stat="identity") + coord_cartesian(ylim=c(0, 100)) + scale_fill_manual(values = topten_palette) + coord_flip()
 bugger2 <- bugger1 + labs(x="자치구", y="점수", title="지역별 점수 그래프", subtitle="패스트푸드점을 선호하는 경우")
 bugger3 <- bugger2 + theme(plot.title=element_text(face="bold", color="steelblue", size = 20),
                            plot.subtitle=element_text(face="bold", color="tomato", size = 15),
@@ -600,10 +670,10 @@ bugger3
 ggsave("bugger.png")
 
 #카페를 선호하는 경우
-result_cafe <- result_cafe %>% arrange(카페선호점수)
-result_cafe$자치구명 <- factor(result_cafe$자치구명, levels=result_cafe$자치구명)
-cafe <- ggplot(result_cafe, aes(x=자치구명, y=카페선호점수, fill=자치구명))
-cafe1 <- cafe + geom_bar(stat="identity") + coord_cartesian(ylim=c(0, 100)) + coord_flip()
+cafe_data <- result_cafe %>% arrange(카페선호점수)
+cafe_data$자치구명 <- factor(cafe_data$자치구명, levels=cafe_data$자치구명)
+cafe <- ggplot(cafe_data, aes(x=자치구명, y=카페선호점수, fill=자치구명))
+cafe1 <- cafe + geom_bar(stat="identity") + coord_cartesian(ylim=c(0, 100)) + scale_fill_manual(values = topten_palette) + coord_flip()
 cafe2 <- cafe1 + labs(x="자치구", y="점수", title="지역별 점수 그래프", subtitle="카페를 선호하는 경우")
 cafe3 <- cafe2 + theme(plot.title=element_text(face="bold", color="steelblue", size = 20),
                        plot.subtitle=element_text(face="bold", color="tomato", size = 15),
@@ -613,10 +683,10 @@ cafe3
 ggsave("cafe.png")
 
 #드럭스토어를 선호하는 경우
-result_drugstore <- result_drugstore %>% arrange(드럭스토어선호점수)
-result_drugstore$자치구명 <- factor(result_drugstore$자치구명, levels=result_drugstore$자치구명)
-drugstore <- ggplot(result_drugstore, aes(x=자치구명, y=드럭스토어선호점수, fill=자치구명))
-drugstore1 <- drugstore + geom_bar(stat="identity") + coord_cartesian(ylim=c(0, 100)) + coord_flip()
+drugstore_data <- result_drugstore %>% arrange(드럭스토어선호점수)
+drugstore_data$자치구명 <- factor(drugstore_data$자치구명, levels=drugstore_data$자치구명)
+drugstore <- ggplot(drugstore_data, aes(x=자치구명, y=드럭스토어선호점수, fill=자치구명))
+drugstore1 <- drugstore + geom_bar(stat="identity") + coord_cartesian(ylim=c(0, 100)) + scale_fill_manual(values = topten_palette) + coord_flip()
 drugstore2 <- drugstore1 + labs(x="자치구", y="점수", title="지역별 점수 그래프", subtitle="드럭스토어를 선호하는 경우")
 drugstore3 <- drugstore2 + theme(plot.title=element_text(face="bold", color="steelblue", size = 20),
                                  plot.subtitle=element_text(face="bold", color="tomato", size = 15),
@@ -626,11 +696,11 @@ drugstore3
 ggsave("drugstore.png")
 
 #월세를 고려하는 경우
-with_rate_result <- with_rate_result %>% arrange(월세고려점수)
-with_rate_result$자치구명 <- factor(with_rate_result$자치구명, levels=with_rate_result$자치구명)
-wolse <- ggplot(with_rate_result, aes(x=자치구명, y=월세고려점수, fill=자치구명))
-wolse1 <- wolse + geom_bar(stat="identity") + coord_cartesian(ylim=c(0, 100)) + coord_flip()
-wolse2 <- wolse1 + labs(x="자치구명", y="점수", title="지역별 점수 그래프", subtitle="월세를 고려하는 경우")
+with_rate_data <- with_rate_result %>% arrange(월세고려점수)
+with_rate_data$자치구명 <- factor(with_rate_data$자치구명, levels=with_rate_data$자치구명)
+wolse <- ggplot(with_rate_data, aes(x=자치구명, y=월세고려점수, fill=자치구명))
+wolse1 <- wolse + geom_bar(stat="identity") + coord_cartesian(ylim=c(0, 100)) + scale_fill_manual(values = topten_palette) + coord_flip()
+wolse2 <- wolse1 + labs(x="자치구", y="점수", title="지역별 점수 그래프", subtitle="월세를 고려하는 경우")
 wolse3 <- wolse2 + theme(plot.title=element_text(face="bold", color="steelblue", size = 20),
                          plot.subtitle=element_text(face="bold", color="tomato", size = 15),
                    axis.title.x=element_text(face="bold", size = 15), axis.title.y=element_text(face="bold", size = 15),
@@ -639,27 +709,9 @@ wolse3
 ggsave("wolse.png")
 
 
-
 library(gridExtra)
-grid.arrange(all3, mart3, bugger3, cafe3, drugstore3, wolse3, nrow = 2)
-ggsave("all_graph.png")
+all_graph <- grid.arrange(all3, mart3, bugger3, cafe3, drugstore3, wolse3, nrow = 2)
+all_graph
+dev.copy(png, "all_graph.png", height=600, width=900, bg="white")
+dev.off()
 
-
-
-
-
-
-
-
-result <- cbind(sort(result_NoBias$자치구명),mart_end_result, drugstore_end_result$드럭스토어점수,
-                bugger_end_result$패스트푸드점수, cafe_end_result$카페점수, with_rate$평균점수)
-
-names(result) <- c("자치구명", "마트점수", "드럭스토어점수",
-                   "패스트푸드점수", "카페점수", "월세점수")
-
-#library(plotly)
-# 인터랙티브 막대 그래프 만들기
-#p <- ggplot(data = diamonds, aes(x = cut, fill = clarity)) + geom_bar(position = "dodge")
-#ggplotly(p)
-
-#corr <- round(cor(mtcars), 1) #데이터의 상관계수 표현, 소수점이하 첫째자리까지 표현
